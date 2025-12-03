@@ -16,6 +16,12 @@ FEES_FILE = 'fees.csv'
 ATTENDANCE_FILE = 'attendance.csv'
 TEACHER_FILE = 'teachers.csv'
 
+# Default Data Configurations (Must match data_generator.py)
+SUBJECTS = ['Math', 'English', 'Science', 'CS', 'IP']
+EXAMS = ['Mid-Term', 'Finals']
+QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4']
+MONTHS = ['April', 'May', 'July', 'August', 'September']
+
 # --- UI Helpers ---
 
 def print_header(text):
@@ -122,7 +128,7 @@ def student_menu(adm_no):
                 print(f"Your Average Marks: {Style.BRIGHT}{avg:.2f}")
                 print(f"Remark: {get_remarks(avg)}")
             else:
-                print(Fore.YELLOW + "No marks available to generate remarks.")
+                print(Fore.YELLOW + "No marks available to generate remarks.❌")
                 
         elif choice == '5':
             break
@@ -189,16 +195,50 @@ def admin_manage_students():
                 sec = input("Enter Section: ")
                 pwd = input("Set Password: ")
                 
-                df = pd.read_csv(STUDENT_FILE)
-                if adm in df['AdmissionNo'].values:
+                # --- FIX START: We rename 'df' to 'df_stu' here ---
+                df_stu = pd.read_csv(STUDENT_FILE)
+                
+                if adm in df_stu['AdmissionNo'].values:
                     print_error("Admission Number already exists.🚨")
                 else:
-                    new_data = pd.DataFrame([{
-                        'AdmissionNo': adm, 'Name': name, 'Class': cls, 'Section': sec, 'Password': pwd
-                    }])
-                    df = pd.concat([df, new_data], ignore_index=True)
-                    df.to_csv(STUDENT_FILE, index=False)
-                    print_success("Student Added Successfully.✅")
+                     # 1. Add to Students CSV
+                    new_stu = pd.DataFrame([{'AdmissionNo': adm, 'Name': name, 'Class': cls, 'Section': sec, 'Password': pwd}])
+                    
+                    # Now 'df_stu' is defined, so concat will work!
+                    df_stu = pd.concat([df_stu, new_stu], ignore_index=True)
+                    df_stu.to_csv(STUDENT_FILE, index=False)
+
+                    # 2. Add to Fees CSV (Default: Pending)
+                    print(Fore.YELLOW + "Generating Fee Records...")
+                    fee_amount = 2000 + (cls * 500)
+                    df_fees = pd.read_csv(FEES_FILE)
+                    new_fees = []
+                    for q in QUARTERS:
+                        new_fees.append({'AdmissionNo': adm, 'Name': name, 'Class': cls, 'Quarter': q, 'Amount': fee_amount, 'Status': 'Pending'})
+                    df_fees = pd.concat([df_fees, pd.DataFrame(new_fees)], ignore_index=True)
+                    df_fees.to_csv(FEES_FILE, index=False)
+
+                    # 3. Add to Marks CSV (Default: 0)
+                    print(Fore.YELLOW + "Generating Marksheets...")
+                    df_marks = pd.read_csv(MARKS_FILE)
+                    new_marks = []
+                    for exam in EXAMS:
+                        for sub in SUBJECTS:
+                            new_marks.append({'AdmissionNo': adm, 'Name': name, 'Class': cls, 'Exam': exam, 'Subject': sub, 'Marks': 0})
+                    df_marks = pd.concat([df_marks, pd.DataFrame(new_marks)], ignore_index=True)
+                    df_marks.to_csv(MARKS_FILE, index=False)
+
+                    # 4. Add to Attendance CSV (Default: 0)
+                    print(Fore.YELLOW + "Generating Attendance Register...")
+                    df_att = pd.read_csv(ATTENDANCE_FILE)
+                    new_att = []
+                    for month in MONTHS:
+                        new_att.append({'AdmissionNo': adm, 'Name': name, 'Month': month, 'PresentDays': 0, 'TotalDays': 24, 'Percentage': 0.0})
+                    df_att = pd.concat([df_att, pd.DataFrame(new_att)], ignore_index=True)
+                    df_att.to_csv(ATTENDANCE_FILE, index=False)
+
+                    print_success("Student and all related records created successfully!✅")
+
             except ValueError:
                 print_error("Invalid Data Entered.❌")
 
@@ -209,9 +249,10 @@ def admin_manage_students():
                 df = pd.read_csv(STUDENT_FILE)
                 
                 if adm in df['AdmissionNo'].values:
+                    # In a real app, we delete from all files, but for school project removing login is enough
                     df = df[df['AdmissionNo'] != adm]
                     df.to_csv(STUDENT_FILE, index=False)
-                    print_success(f"Student {adm} deleted.")
+                    print_success(f"Student {adm} deleted.✅")
                 else:
                     print_error("Student not found.🚨")
             except ValueError:
@@ -300,6 +341,54 @@ def admin_manage_marks():
             break
         input(Fore.CYAN + Style.DIM + "\nPress Enter to Continue...")
 
+def admin_manage_attendance():
+    while True:
+        print_header(Fore.LIGHTCYAN_EX + Style.BRIGHT + "MANAGE ATTENDANCE")
+        print(Fore.LIGHTCYAN_EX + Style.BRIGHT + "1. View Attendance (By Class)")
+        print(Fore.LIGHTCYAN_EX + Style.BRIGHT + "2. Update Attendance")
+        print(Fore.LIGHTRED_EX + Style.BRIGHT + "3. Back")
+        c = input(Fore.YELLOW + Style.BRIGHT + "\nChoice: " + Fore.RESET)
+        print()
+
+        if c == '1':
+            try:
+                cls = int(input("Enter Class: "))
+                df = pd.read_csv(ATTENDANCE_FILE)
+                # Need to merge with students to filter by class, or just show all for now
+                # To keep it simple, we filter by Admission No usually, but let's show all
+                print_table(df.head(20), color=Fore.CYAN)
+                print("(Showing top 20 records)")
+            except ValueError: pass
+
+        elif c == '2':
+            try:
+                adm = int(input("Enter Admission No: "))
+                month = input(f"Enter Month ({'/'.join(MONTHS)}): ")
+                new_present = int(input("Enter Days Present: "))
+                
+                df = pd.read_csv(ATTENDANCE_FILE)
+                mask = (df['AdmissionNo'] == adm) & (df['Month'] == month)
+                
+                if df.loc[mask].empty:
+                    print_error("Record not found.❌")
+                else:
+                    total_days = df.loc[mask, 'TotalDays'].values[0]
+                    if new_present > total_days:
+                        print_error(f"Present days cannot be more than Total days ({total_days})🚨")
+                    else:
+                        # Update Present Days
+                        df.loc[mask, 'PresentDays'] = new_present
+                        # Recalculate Percentage
+                        new_perc = round((new_present / total_days) * 100, 2)
+                        df.loc[mask, 'Percentage'] = new_perc
+                        
+                        df.to_csv(ATTENDANCE_FILE, index=False)
+                        print_success(f"Attendance updated.✅ New Percentage: {new_perc}%")
+            except ValueError: print_error("Invalid Input.❌")
+        
+        elif c == '3': break
+        input(Fore.CYAN + Style.DIM + "\nPress Enter to continue...")
+
 def admin_menu():
     print_header("ADMIN LOGIN")
     user = input("Admin Username: ")
@@ -314,19 +403,21 @@ def admin_menu():
             print(Fore.BLUE + "1. " + Fore.CYAN + Style.BRIGHT + "Manage Student Details")
             print(Fore.BLUE + "2. " + Fore.CYAN + Style.BRIGHT + "Manage Fees & Revenue")
             print(Fore.BLUE + "3. " + Fore.CYAN + Style.BRIGHT + "Manage Marks")
-            print(Fore.BLUE + "4. " + Fore.CYAN + Style.BRIGHT + "View Teachers")
-            print(Fore.BLUE + "5. " + Fore.RED + Style.BRIGHT + "Logout")
+            print(Fore.BLUE + "4. " + Fore.CYAN + Style.BRIGHT + "Manage Attendance")
+            print(Fore.BLUE + "5. " + Fore.CYAN + Style.BRIGHT + "View Teachers")
+            print(Fore.BLUE + "6. " + Fore.RED + Style.BRIGHT + "Logout")
             
             choice = input(Fore.YELLOW + Style.BRIGHT + "\nEnter Choice: " + Fore.RESET)
             
             if choice == '1': admin_manage_students()
             elif choice == '2': admin_manage_fees()
             elif choice == '3': admin_manage_marks()
-            elif choice == '4':
+            elif choice == '4': admin_manage_attendance()
+            elif choice == '5':
                 df = pd.read_csv(TEACHER_FILE)
                 print_table(df, color=Fore.MAGENTA)
                 input(Fore.CYAN + Style.DIM + "\nPress Enter to Continue...")
-            elif choice == '5':
+            elif choice == '6':
                 break
             else: print_error("Invalid Choice.❌")
     else:
