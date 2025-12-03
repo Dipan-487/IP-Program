@@ -438,8 +438,8 @@ def main():
     '-------------------------------------------------------'
         """)
         print(Fore.GREEN + Style.BRIGHT + "1. Student Login")
-        print(Fore.RED + Style.BRIGHT + "2. Admin Login")
-        print(Fore.CYAN + Style.BRIGHT + "3. Exit")
+        print(Fore.CYAN + Style.BRIGHT + "2. Admin Login")
+        print(Fore.RED + Style.BRIGHT + "3. Exit")
         
         choice = input(Fore.YELLOW + Style.BRIGHT + "\nEnter Choice: " + Fore.RESET)
         
