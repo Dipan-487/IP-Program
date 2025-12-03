@@ -17,7 +17,7 @@ main.py is the main py file. You can run as many time as you want :)
 For flowchart of the program, go to flowchart.txt.
 For libraries that is required to run this program, go to libraries.txt.
 
-#### 📁 Clone the Repository
+### 📁 Clone the Repository
 
 ```bash
 git clone https://github.com/your-username/school-management-system.git
